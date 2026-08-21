@@ -85,7 +85,7 @@ class BoardService {
       throw new AppError('Board not found', 404, 'BOARD_NOT_FOUND');
     }
 
-    await cardRepository.findByBoardAndDelete(board.id);
+    await cardRepository.findByBoardAndDelete(board._id);
     return await boardRepository.deleteByPublicId(publicId);
   }
 }

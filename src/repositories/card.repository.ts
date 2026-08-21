@@ -8,11 +8,11 @@ export default class CardRepository extends BaseRepository<Card> {
     super(CardModel);
   }
 
-  findByBoardAndDelete(id: string) {
-    return CardModel.deleteMany({
-      boardId: id,
-    });
-  }
+    findByBoardAndDelete(boardId: Types.ObjectId) {
+        return CardModel.deleteMany({
+            boardId,
+        });
+    }
 
   findByBoardId(boardId: Types.ObjectId) {
     return CardModel.find({ boardId }).sort({ position: 1 });
