@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "nodemon",
+    "build": "tsc",
+    "start": "node dist/server.js",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
