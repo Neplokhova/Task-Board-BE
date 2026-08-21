@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Types } from 'mongoose';
 
 import CardService from '../../src/services/card.service.js';
 import {
@@ -21,6 +22,30 @@ vi.mock('../../src/repositories/index.repository.js', () => ({
     },
 }));
 
+type BoardDocument = Awaited<
+    ReturnType<typeof boardRepository.findBoardByPublicId>
+>;
+
+type CreatedCard = Awaited<
+    ReturnType<typeof cardRepository.createOne>
+>;
+
+type LastCard = Awaited<
+    ReturnType<typeof cardRepository.findLastByBoardAndStatus>
+>;
+
+type UpdatedCard = Awaited<
+    ReturnType<typeof cardRepository.updateById>
+>;
+
+type MovedCard = Awaited<
+    ReturnType<typeof cardRepository.moveCard>
+>;
+
+type DeletedCard = Awaited<
+    ReturnType<typeof cardRepository.deleteById>
+>;
+
 describe('CardService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -29,28 +54,28 @@ describe('CardService', () => {
     describe('createCard', () => {
         it('creates the first card at position 0', async () => {
             const board = {
-                _id: 'board-id',
+                _id: new Types.ObjectId(),
                 publicId: 'public-board-id',
                 title: 'Task Board',
-            };
+            } as BoardDocument;
+
+            const createdCard = {
+                _id: new Types.ObjectId(),
+                title: 'Task A',
+                description: 'Description',
+                status: CardStatus.TODO,
+                boardId: board?._id,
+                position: 0,
+            } as CreatedCard;
 
             vi.mocked(boardRepository.findBoardByPublicId)
-                .mockResolvedValue(board as any);
+                .mockResolvedValue(board);
 
             vi.mocked(cardRepository.findLastByBoardAndStatus)
                 .mockResolvedValue(null);
 
-            const createdCard = {
-                _id: 'card-id',
-                title: 'Task A',
-                description: 'Description',
-                status: CardStatus.TODO,
-                boardId: board._id,
-                position: 0,
-            };
-
             vi.mocked(cardRepository.createOne)
-                .mockResolvedValue(createdCard as any);
+                .mockResolvedValue(createdCard);
 
             const result = await CardService.createCard(
                 'Task A',
@@ -60,7 +85,7 @@ describe('CardService', () => {
 
             expect(cardRepository.findLastByBoardAndStatus)
                 .toHaveBeenCalledWith(
-                    board._id,
+                    board?._id,
                     CardStatus.TODO,
                 );
 
@@ -69,7 +94,7 @@ describe('CardService', () => {
                     title: 'Task A',
                     description: 'Description',
                     status: CardStatus.TODO,
-                    boardId: board._id,
+                    boardId: board?._id,
                     position: 0,
                 });
 
@@ -78,23 +103,37 @@ describe('CardService', () => {
 
         it('creates a new card after the last TODO card', async () => {
             const board = {
-                _id: 'board-id',
+                _id: new Types.ObjectId(),
                 publicId: 'public-board-id',
                 title: 'Task Board',
-            };
+            } as BoardDocument;
+
+            const lastCard = {
+                _id: new Types.ObjectId(),
+                title: 'Task D',
+                description: 'Description',
+                status: CardStatus.TODO,
+                boardId: board?._id,
+                position: 3,
+            } as LastCard;
+
+            const createdCard = {
+                _id: new Types.ObjectId(),
+                title: 'Task E',
+                description: 'Description',
+                status: CardStatus.TODO,
+                boardId: board?._id,
+                position: 4,
+            } as CreatedCard;
 
             vi.mocked(boardRepository.findBoardByPublicId)
-                .mockResolvedValue(board as any);
+                .mockResolvedValue(board);
 
             vi.mocked(cardRepository.findLastByBoardAndStatus)
-                .mockResolvedValue({
-                    position: 3,
-                } as any);
+                .mockResolvedValue(lastCard);
 
             vi.mocked(cardRepository.createOne)
-                .mockResolvedValue({
-                    position: 4,
-                } as any);
+                .mockResolvedValue(createdCard);
 
             await CardService.createCard(
                 'Task E',
@@ -107,7 +146,7 @@ describe('CardService', () => {
                     title: 'Task E',
                     description: 'Description',
                     status: CardStatus.TODO,
-                    boardId: board._id,
+                    boardId: board?._id,
                     position: 4,
                 });
         });
@@ -133,18 +172,28 @@ describe('CardService', () => {
 
         it('trims title and description', async () => {
             const board = {
-                _id: 'board-id',
+                _id: new Types.ObjectId(),
                 publicId: 'public-board-id',
-            };
+                title: 'Task Board',
+            } as BoardDocument;
+
+            const createdCard = {
+                _id: new Types.ObjectId(),
+                title: 'Task A',
+                description: 'Description',
+                status: CardStatus.TODO,
+                boardId: board?._id,
+                position: 0,
+            } as CreatedCard;
 
             vi.mocked(boardRepository.findBoardByPublicId)
-                .mockResolvedValue(board as any);
+                .mockResolvedValue(board);
 
             vi.mocked(cardRepository.findLastByBoardAndStatus)
                 .mockResolvedValue(null);
 
             vi.mocked(cardRepository.createOne)
-                .mockResolvedValue({} as any);
+                .mockResolvedValue(createdCard);
 
             await CardService.createCard(
                 '   Task A   ',
@@ -157,7 +206,7 @@ describe('CardService', () => {
                     title: 'Task A',
                     description: 'Description',
                     status: CardStatus.TODO,
-                    boardId: board._id,
+                    boardId: board?._id,
                     position: 0,
                 });
         });
@@ -166,13 +215,16 @@ describe('CardService', () => {
     describe('updateCard', () => {
         it('updates a card', async () => {
             const updatedCard = {
-                _id: 'card-id',
+                _id: new Types.ObjectId(),
                 title: 'Updated',
                 description: 'Updated description',
-            };
+                status: CardStatus.TODO,
+                boardId: new Types.ObjectId(),
+                position: 0,
+            } as UpdatedCard;
 
             vi.mocked(cardRepository.updateById)
-                .mockResolvedValue(updatedCard as any);
+                .mockResolvedValue(updatedCard);
 
             const result = await CardService.updateCard(
                 'card-id',
@@ -199,13 +251,16 @@ describe('CardService', () => {
     describe('moveCard', () => {
         it('moves a card', async () => {
             const movedCard = {
-                _id: 'card-id',
+                _id: new Types.ObjectId(),
+                title: 'Task',
+                description: 'Description',
                 status: CardStatus.DONE,
+                boardId: new Types.ObjectId(),
                 position: 2,
-            };
+            } as MovedCard;
 
             vi.mocked(cardRepository.moveCard)
-                .mockResolvedValue(movedCard as any);
+                .mockResolvedValue(movedCard);
 
             const result = await CardService.moveCard(
                 'card-id',
@@ -244,11 +299,16 @@ describe('CardService', () => {
     describe('deleteCard', () => {
         it('deletes a card', async () => {
             const deletedCard = {
-                _id: 'card-id',
-            };
+                _id: new Types.ObjectId(),
+                title: 'Task',
+                description: 'Description',
+                status: CardStatus.TODO,
+                boardId: new Types.ObjectId(),
+                position: 0,
+            } as DeletedCard;
 
             vi.mocked(cardRepository.deleteById)
-                .mockResolvedValue(deletedCard as any);
+                .mockResolvedValue(deletedCard);
 
             const result = await CardService.deleteCard('card-id');
 

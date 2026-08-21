@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Types } from 'mongoose';
 
 import BoardService from '../../src/services/board.service.js';
 import {
@@ -20,6 +21,26 @@ vi.mock('../../src/repositories/index.repository.js', () => ({
     },
 }));
 
+type BoardDocument = NonNullable<
+    Awaited<ReturnType<typeof boardRepository.findBoardByPublicId>>
+>;
+
+type CreatedBoard = Awaited<
+    ReturnType<typeof boardRepository.createOne>
+>;
+
+type UpdatedBoard = NonNullable<
+    Awaited<ReturnType<typeof boardRepository.updateByPublicId>>
+>;
+
+type CardDocuments = Awaited<
+    ReturnType<typeof cardRepository.findByBoardId>
+>;
+
+type DeletedCards = Awaited<
+    ReturnType<typeof cardRepository.findByBoardAndDelete>
+>;
+
 describe('BoardService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -28,60 +49,75 @@ describe('BoardService', () => {
     describe('createBoard', () => {
         it('creates a board', async () => {
             const board = {
+                publicId: 'public-board-id',
                 title: 'Task Board',
             };
 
-            vi.mocked(boardRepository.createOne)
-                .mockResolvedValue(board as any);
+            const createdBoard = board as CreatedBoard;
 
-            const result = await BoardService.createBoard(
-                board as any,
-            );
+            vi.mocked(boardRepository.createOne)
+                .mockResolvedValue(createdBoard);
+
+            const result = await BoardService.createBoard(board);
 
             expect(boardRepository.createOne)
                 .toHaveBeenCalledWith(board);
 
-            expect(result).toEqual(board);
+            expect(result).toEqual(createdBoard);
         });
     });
 
     describe('getBoardByPublicId', () => {
         it('returns board with cards grouped by status', async () => {
+            const boardId = new Types.ObjectId();
+
             const board = {
-                _id: 'board-id',
+                _id: boardId,
                 publicId: 'public-id',
                 title: 'Task Board',
-            };
+            } as BoardDocument;
+
+            const card1Id = new Types.ObjectId(
+                '507f1f77bcf86cd799439011',
+            );
+
+            const card2Id = new Types.ObjectId(
+                '507f1f77bcf86cd799439012',
+            );
+
+            const card3Id = new Types.ObjectId(
+                '507f1f77bcf86cd799439013',
+            );
 
             const cards = [
                 {
-                    _id: 'card-1',
+                    _id: card1Id,
                     title: 'Task A',
                     description: 'Description A',
                     status: CardStatus.TODO,
                     position: 0,
                 },
                 {
-                    _id: 'card-2',
+                    _id: card2Id,
                     title: 'Task B',
                     description: 'Description B',
                     status: CardStatus.IN_PROGRESS,
                     position: 0,
                 },
                 {
-                    _id: 'card-3',
+                    _id: card3Id,
                     title: 'Task C',
                     description: 'Description C',
                     status: CardStatus.DONE,
                     position: 0,
                 },
-            ];
+            ] as CardDocuments;
 
             vi.mocked(boardRepository.findBoardByPublicId)
-                .mockResolvedValue(board as any);
+                .mockResolvedValue(board);
 
             vi.mocked(cardRepository.findByBoardId)
-                .mockResolvedValue(cards as any);
+                .mockResolvedValue(cards);
 
             const result =
                 await BoardService.getBoardByPublicId('public-id');
@@ -92,7 +128,7 @@ describe('BoardService', () => {
                 cards: {
                     todo: [
                         {
-                            id: 'card-1',
+                            id: card1Id.toString(),
                             name: 'Task A',
                             description: 'Description A',
                             status: 'todo',
@@ -101,7 +137,7 @@ describe('BoardService', () => {
                     ],
                     'in-progress': [
                         {
-                            id: 'card-2',
+                            id: card2Id.toString(),
                             name: 'Task B',
                             description: 'Description B',
                             status: 'in-progress',
@@ -110,7 +146,7 @@ describe('BoardService', () => {
                     ],
                     done: [
                         {
-                            id: 'card-3',
+                            id: card3Id.toString(),
                             name: 'Task C',
                             description: 'Description C',
                             status: 'done',
@@ -141,13 +177,13 @@ describe('BoardService', () => {
     describe('updateBoard', () => {
         it('updates a board by public ID', async () => {
             const updatedBoard = {
-                _id: 'board-id',
+                _id: new Types.ObjectId(),
                 publicId: 'public-id',
                 title: 'Updated Board',
-            };
+            } as UpdatedBoard;
 
             vi.mocked(boardRepository.updateByPublicId)
-                .mockResolvedValue(updatedBoard as any);
+                .mockResolvedValue(updatedBoard);
 
             const result = await BoardService.updateBoard(
                 'public-id',
@@ -190,24 +226,32 @@ describe('BoardService', () => {
 
     describe('deleteBoard', () => {
         it('deletes the cards and then the board', async () => {
+            const boardId = new Types.ObjectId();
+
             const board = {
-                _id: 'board-id',
+                _id: boardId,
                 publicId: 'public-id',
-            };
+                title: 'Task Board',
+            } as BoardDocument;
+
+            const deletedCards = {
+                acknowledged: true,
+                deletedCount: 2,
+            } as DeletedCards;
 
             vi.mocked(boardRepository.findBoardByPublicId)
-                .mockResolvedValue(board as any);
+                .mockResolvedValue(board);
 
             vi.mocked(cardRepository.findByBoardAndDelete)
-                .mockResolvedValue({ deletedCount: 2 } as any);
+                .mockResolvedValue(deletedCards);
 
             vi.mocked(boardRepository.deleteByPublicId)
-                .mockResolvedValue(board as any);
+                .mockResolvedValue(board);
 
             await BoardService.deleteBoard('public-id');
 
             expect(cardRepository.findByBoardAndDelete)
-                .toHaveBeenCalledWith(board._id);
+                .toHaveBeenCalledWith(boardId);
 
             expect(boardRepository.deleteByPublicId)
                 .toHaveBeenCalledWith('public-id');
